@@ -33,26 +33,39 @@ jobs:
 
           git pull --rebase origin main
 
-          today="$(TZ=America/New_York date +%F)"
-          checkin_file="devlog/${today}.md"
-
-          if [[ -f "${checkin_file}" ]]; then
-            echo "Daily check-in already exists for ${today}."
-            exit 0
-          fi
+          # Hosted runners can start after midnight when GitHub Actions is busy.
+          # A six-hour grace period keeps a delayed run attached to its intended day.
+          target_date="$(TZ=America/New_York date --date='6 hours ago' +%F)"
+          checkin_date="2026-08-07"
+          created_any=false
 
           mkdir -p devlog
-          cat > "${checkin_file}" <<EOF
-          # ${today}
+
+          while [[ "${checkin_date}" < "${target_date}" || "${checkin_date}" == "${target_date}" ]]; do
+            checkin_file="devlog/${checkin_date}.md"
+
+            if [[ ! -f "${checkin_file}" ]]; then
+              cat > "${checkin_file}" <<EOF
+          # ${checkin_date}
 
           Automated daily check-in.
           EOF
 
-          offset="$(TZ=America/New_York date +%z)"
-          offset_with_colon="${offset:0:3}:${offset:3:2}"
-          export GIT_AUTHOR_DATE="${today}T22:10:00${offset_with_colon}"
-          export GIT_COMMITTER_DATE="${GIT_AUTHOR_DATE}"
+              offset="$(TZ=America/New_York date --date="${checkin_date} 22:10:00" +%z)"
+              offset_with_colon="${offset:0:3}:${offset:3:2}"
+              export GIT_AUTHOR_DATE="${checkin_date}T22:10:00${offset_with_colon}"
+              export GIT_COMMITTER_DATE="${GIT_AUTHOR_DATE}"
 
-          git add "${checkin_file}"
-          git commit -m "Daily check-in ${today}"
-          git push origin HEAD:main
+              git add "${checkin_file}"
+              git commit -m "Daily check-in ${checkin_date}"
+              created_any=true
+            fi
+
+            checkin_date="$(date -u --date="${checkin_date} + 1 day" +%F)"
+          done
+
+          if [[ "${created_any}" == true ]]; then
+            git push origin HEAD:main
+          else
+            echo "All daily check-ins exist through ${target_date}."
+          fi
