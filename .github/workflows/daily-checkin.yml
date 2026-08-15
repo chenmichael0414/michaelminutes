@@ -45,19 +45,32 @@ jobs:
             checkin_file="devlog/${checkin_date}.md"
 
             if [[ ! -f "${checkin_file}" ]]; then
-              cat > "${checkin_file}" <<EOF
+              commit_count="$((RANDOM % 10 + 1))"
+              echo "Creating ${commit_count} check-in commits for ${checkin_date}."
+
+              for ((commit_number = 1; commit_number <= commit_count; commit_number += 1)); do
+                if [[ "${commit_number}" -eq 1 ]]; then
+                  cat > "${checkin_file}" <<EOF
           # ${checkin_date}
 
           Automated daily check-in.
+
+          Check-in ${commit_number} of ${commit_count}.
           EOF
+                else
+                  printf '\nCheck-in %s of %s.\n' "${commit_number}" "${commit_count}" >> "${checkin_file}"
+                fi
 
-              offset="$(TZ=America/New_York date --date="${checkin_date} 22:10:00" +%z)"
-              offset_with_colon="${offset:0:3}:${offset:3:2}"
-              export GIT_AUTHOR_DATE="${checkin_date}T22:10:00${offset_with_colon}"
-              export GIT_COMMITTER_DATE="${GIT_AUTHOR_DATE}"
+                offset="$(TZ=America/New_York date --date="${checkin_date} 22:10:00" +%z)"
+                offset_with_colon="${offset:0:3}:${offset:3:2}"
+                commit_second="$(printf '%02d' "$((commit_number - 1))")"
+                export GIT_AUTHOR_DATE="${checkin_date}T22:10:${commit_second}${offset_with_colon}"
+                export GIT_COMMITTER_DATE="${GIT_AUTHOR_DATE}"
 
-              git add "${checkin_file}"
-              git commit -m "Daily check-in ${checkin_date}"
+                git add "${checkin_file}"
+                git commit -m "Daily check-in ${checkin_date} (${commit_number}/${commit_count})"
+              done
+
               created_any=true
             fi
 
